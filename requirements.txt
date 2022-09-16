@@ -1,0 +1,7 @@
+flask
+xmltodict
+cx_oracle
+flask_cors
+dict2xml
+wheel
+pycryptodome
