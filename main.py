@@ -420,6 +420,8 @@ def famiport_001():
 
         data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
 
+        data = data.replace('&lt;', '<').replace('&gt;', '>')
+
         logging.info(data)
 
         return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
@@ -475,6 +477,8 @@ def famiport_002():
 
         data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
 
+        data = data.replace('&lt;', '<').replace('&gt;', '>')
+
         logging.info(data)
 
         return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
@@ -527,6 +531,8 @@ def famiport_003():
 
         data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
 
+        data = data.replace('&lt;', '<').replace('&gt;', '>')
+
         logging.info(data)
 
         return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
@@ -571,6 +577,8 @@ def famiport_001_test():
         obj = json.loads(rtn_json)
 
         data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
+
+        data = data.replace('&lt;', '<').replace('&gt;', '>')
 
         logging.info(data)
 
@@ -627,6 +635,8 @@ def famiport_002_test():
 
         data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
 
+        data = data.replace('&lt;', '<').replace('&gt;', '>')
+
         logging.info(data)
 
         return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
@@ -678,6 +688,8 @@ def famiport_003_test():
         obj = json.loads(rtn_json)
 
         data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
+
+        data = data.replace('&lt;', '<').replace('&gt;', '>')
 
         logging.info(data)
 
