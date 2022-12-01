@@ -27,6 +27,8 @@ from base64 import b64encode
 from Crypto.Cipher import PKCS1_v1_5
 import hashlib
 
+from collections import OrderedDict
+
 # from flask_sqlalchemy import SQLAlchemy
 
 
@@ -151,6 +153,16 @@ def get_prize_type(prize):
         return '特別獎'
     elif prize == '0':
         return '特獎'
+    elif prize == 'B':
+        return '雲端發票專屬兩千元獎'
+    elif prize == 'C':
+        return '雲端發票專屬百萬元獎'
+    elif prize == 'D':
+        return '雲端發票專屬五百元獎'
+    elif prize == 'E':
+        return '雲端發票專屬八百元獎'
+    else:
+        return '雲端發票'
 
 def get_prize_period_start(sValue):
     year = int(sValue[0:4]) - 1911
@@ -185,8 +197,8 @@ def get_prize_period_end(sValue):
         return str(year+1).zfill(3) + '0505'
 
 
-key = "7pou9h3raef45tr5l0u4rkk6hyu8oag2" # 測試環境
-# key = "95yt4hpoicj98ieuoj7u4mo41hmu2h5m" # 正式環境
+# key = "7pou9h3raef45tr5l0u4rkk6hyu8oag2" # 測試環境
+key = "95yt4hpoicj98ieuoj7u4mo41hmu2h5m" # 正式環境
 
 def pkcs7padding(data, block_size=16):
   if type(data) != bytearray and type(data) != bytes:
@@ -222,8 +234,14 @@ def get_invoice_data_01(VALIDATE_01, VALIDATE_02, VALIDATE_03):
     today = date.today()
     INV_TODAY = get_tw_year(today.strftime('%Y')) + today.strftime('%m%d')
 
+
+    if len(VALIDATE_02) > 8:
+        PARA = VALIDATE_02[2:]
+    else:
+        PARA = VALIDATE_02
+
     with YahooApiDao() as master_dao:
-        master_dao.get_inv_award_mail_ctn_main(VALIDATE_01, VALIDATE_02, VALIDATE_03)
+        master_dao.get_inv_award_mail_ctn_main(VALIDATE_01, PARA, VALIDATE_03)
 
         try:
             row = master_dao.fetchall()
@@ -334,8 +352,13 @@ def get_invoice_data_02(EINVOICE_01, EINVOICE_02, PRINT_TIME, TRAN_NO):
 def get_invoice_data_03(INV_NO, HG_TRAN_NO):
     INV_DATA = []
 
+    if len(INV_NO) > 8:
+        PARA = INV_NO[2:]
+    else:
+        PARA = INV_NO
+
     with YahooApiDao() as master_dao:
-        master_dao.get_inv_award_mail_ctn_main_tran_no(INV_NO, HG_TRAN_NO)
+        master_dao.get_inv_award_mail_ctn_main_tran_no(PARA, HG_TRAN_NO)
 
         try:
             row = master_dao.fetchall()
@@ -402,29 +425,45 @@ def famiport_001():
         VALIDATE_02 = content['SEND_DATA']['VALIDATE_02']
         VALIDATE_03 = content['SEND_DATA']['VALIDATE_03']
 
-        RTN_DATA = Object()
+        RTN_DATA = ""
 
         INV_DATA = get_invoice_data_01(VALIDATE_01, VALIDATE_02, VALIDATE_03)
 
-        RTN_DATA.TRAN_NO = TRAN_NO
-        RTN_DATA.TEN_CODE = TEN_CODE
-        RTN_DATA.STATUS_CODE = "0000"
-        RTN_DATA.STATUS_DESC = "<![CDATA[成功]]>"
-        RTN_DATA.RTN_CNT = len(INV_DATA)
+        RTN_DATA += "<RTN_DATA>\n"
+        RTN_DATA += "\t<TRAN_NO>" + TRAN_NO + "</TRAN_NO>\n"
+        RTN_DATA += "\t<TEN_CODE>" + TEN_CODE + "</TEN_CODE>\n"
+        RTN_DATA += "\t<STATUS_CODE>" + "0000" + "</STATUS_CODE>\n"
+        RTN_DATA += "\t<STATUS_DESC>" + "<![CDATA[成功]]>" + "</STATUS_DESC>\n"
+        RTN_DATA += "\t<RTN_CNT>" + str(len(INV_DATA)) + "</RTN_CNT>\n"
 
-        RTN_DATA.INV_DATA = INV_DATA
+        for INV in INV_DATA:
+            RTN_DATA += "\t<INV_DATA>\n"
+            RTN_DATA += "\t\t<EINVOICE_01>" + INV.EINVOICE_01 + "</EINVOICE_01>\n"
+            RTN_DATA += "\t\t<EINVOICE_02>" + INV.EINVOICE_02  + "</EINVOICE_02>\n"
+            RTN_DATA += "\t\t<PRZ_PERIOD_01>" + INV.PRZ_PERIOD_01  + "</PRZ_PERIOD_01>\n"
+            RTN_DATA += "\t\t<PRZ_PERIOD_02>" + INV.PRZ_PERIOD_02 + "</PRZ_PERIOD_02>\n"
+            RTN_DATA += "\t\t<PRZ_PERIOD_03>" + INV.PRZ_PERIOD_03 + "</PRZ_PERIOD_03>\n"
+            RTN_DATA += "\t\t<PRZ_TYPE>" + INV.PRZ_TYPE + "</PRZ_TYPE>\n"
+            RTN_DATA += "\t\t<PRZ_AMT>" + str(INV.PRZ_AMT) + "</PRZ_AMT>\n"
+            RTN_DATA += "\t\t<PURCHASE_AMT>" + str(INV.PURCHASE_AMT) + "</PURCHASE_AMT>\n"
+            RTN_DATA += "\t\t<IS_PRINT>" + INV.IS_PRINT + "</IS_PRINT>\n"
+            RTN_DATA += "\t</INV_DATA>\n"
 
-        rtn_json = json.dumps(RTN_DATA, default=obj_dict)
+        RTN_DATA += "</RTN_DATA>\n"
 
-        obj = json.loads(rtn_json)
+        # rtn_json = json.dumps(RTN_DATA, default=obj_dict)
 
-        data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
+        # obj = json.loads(rtn_json)
 
-        data = data.replace('&lt;', '<').replace('&gt;', '>')
+        # data = dict2xml(RTN_DATA, wrap ='RTN_DATA', indent ="   ")
 
-        logging.info(data)
+        # data = data.replace('&lt;', '<').replace('&gt;', '>')
 
-        return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
+        logging.info("001=>" + RTN_DATA)
+
+        big5="<?xml version=\"1.0\" encoding=\"big5\"?>\n" + RTN_DATA
+
+        return Response(big5.encode(encoding='big5',errors='strict'), content_type='text/xml; charset=big5')
     except Exception as e:
         error, = e.args
         logging.error(error)
@@ -451,16 +490,26 @@ def famiport_002():
        
         RTN_DATA = Object()
 
-        #loop each INV_DATA
-        for inv in INV_DATA:
-            EINVOICE_01 = inv['EINVOICE_01']
-            EINVOICE_02 = inv['EINVOICE_02']
+        
+        if isinstance(INV_DATA, dict):
+            EINVOICE_01 = INV_DATA['EINVOICE_01']
+            EINVOICE_02 = INV_DATA['EINVOICE_02']
 
             TEMP_INV_DETAIL = get_invoice_data_02(EINVOICE_01, EINVOICE_02, PRINT_TIME, TRAN_NO)
-            
+                
             if len(TEMP_INV_DETAIL) > 0:
                 INV_DETAIL.append(TEMP_INV_DETAIL)
                 update_invoice_as_printed(EINVOICE_01, EINVOICE_02, TRAN_NO, PRINT_TIME)
+        else:
+            for inv in INV_DATA:
+                EINVOICE_01 = inv['EINVOICE_01']
+                EINVOICE_02 = inv['EINVOICE_02']
+
+                TEMP_INV_DETAIL = get_invoice_data_02(EINVOICE_01, EINVOICE_02, PRINT_TIME, TRAN_NO)
+                
+                if len(TEMP_INV_DETAIL) > 0:
+                    INV_DETAIL.append(TEMP_INV_DETAIL)
+                    update_invoice_as_printed(EINVOICE_01, EINVOICE_02, TRAN_NO, PRINT_TIME)
 
   
         RTN_DATA.TRAN_NO = TRAN_NO
@@ -479,9 +528,11 @@ def famiport_002():
 
         data = data.replace('&lt;', '<').replace('&gt;', '>')
 
-        logging.info(data)
+        logging.info("002=>" + data)
 
-        return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
+        big5="<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data
+
+        return Response(big5.encode(encoding='big5',errors='strict'), content_type='text/xml; charset=big5')
     except Exception as e:
         error, = e.args
         logging.error(error)
@@ -533,14 +584,17 @@ def famiport_003():
 
         data = data.replace('&lt;', '<').replace('&gt;', '>')
 
-        logging.info(data)
+        logging.info("003=>" + data)
 
-        return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
+        big5="<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data
+
+        return Response(big5.encode(encoding='big5',errors='strict'), content_type='text/xml; charset=big5')
     except Exception as e:
         error, = e.args
         logging.error(error)
         return Response("<?xml version=\"1.0\" encoding=\"big5\"?><RTN_DATA><STATUS_CODE>9999</STATUS_CODE><STATUS_DESC><![CDATA[失敗:%s]]></STATUS_DESC><RTN_CNT>0</RTN_CNT></RTN_DATA>" % (error), mimetype='text/xml')
-        
+
+    
 # curl -H "Content-Type: application/x-www-form-urlencoded; charset=big5" -X POST -d "PRZ_001_01=<?xml version=\"1.0\" encoding=\"big5\"?><SEND_DATA><TRAN_NO>18C00000052</TRAN_NO><TEN_CODE>009979</TEN_CODE><VALIDATE_CNT>3</VALIDATE_CNT><VALIDATE_01><![CDATA[AB12345678]]></VALIDATE_01><VALIDATE_02><![CDATA[ABC]]></VALIDATE_02><VALIDATE_03><![CDATA[DEF]]></VALIDATE_03><VALIDATE_04></VALIDATE_04><VALIDATE_05></VALIDATE_05><VALIDATE_06></VALIDATE_06><VALIDATE_07></VALIDATE_07><VALIDATE_08></VALIDATE_08><VALIDATE_09></VALIDATE_09><VALIDATE_10></VALIDATE_10></SEND_DATA>" https://service.taaze.tw/famiport/prz_001
 # curl -H "Content-Type: application/x-www-form-urlencoded; charset=big5" -X POST -d "PRZ_001_01=<?xml version=\"1.0\" encoding=\"big5\"?><SEND_DATA><TRAN_NO>18C00000052</TRAN_NO><TEN_CODE>009979</TEN_CODE><VALIDATE_CNT>3</VALIDATE_CNT><VALIDATE_01><![CDATA[WP23898321]]></VALIDATE_01><VALIDATE_02><![CDATA[2308]]></VALIDATE_02><VALIDATE_03><![CDATA[DEF]]></VALIDATE_03><VALIDATE_04></VALIDATE_04><VALIDATE_05></VALIDATE_05><VALIDATE_06></VALIDATE_06><VALIDATE_07></VALIDATE_07><VALIDATE_08></VALIDATE_08><VALIDATE_09></VALIDATE_09><VALIDATE_10></VALIDATE_10></SEND_DATA>" http://127.0.0.1:8080/famiport/prz_001
 @app.route('/famiport/prz_001/test', methods=['POST'])
@@ -560,29 +614,45 @@ def famiport_001_test():
         VALIDATE_02 = content['SEND_DATA']['VALIDATE_02']
         VALIDATE_03 = content['SEND_DATA']['VALIDATE_03']
 
-        RTN_DATA = Object()
+        RTN_DATA = ""
 
         INV_DATA = get_invoice_data_01(VALIDATE_01, VALIDATE_02, VALIDATE_03)
 
-        RTN_DATA.TRAN_NO = TRAN_NO
-        RTN_DATA.TEN_CODE = TEN_CODE
-        RTN_DATA.STATUS_CODE = "0000"
-        RTN_DATA.STATUS_DESC = "<![CDATA[成功]]>"
-        RTN_DATA.RTN_CNT = len(INV_DATA)
+        RTN_DATA += "<RTN_DATA>\n"
+        RTN_DATA += "\t<TRAN_NO>" + TRAN_NO + "</TRAN_NO>\n"
+        RTN_DATA += "\t<TEN_CODE>" + TEN_CODE + "</TEN_CODE>\n"
+        RTN_DATA += "\t<STATUS_CODE>" + "0000" + "</STATUS_CODE>\n"
+        RTN_DATA += "\t<STATUS_DESC>" + "<![CDATA[成功]]>" + "</STATUS_DESC>\n"
+        RTN_DATA += "\t<RTN_CNT>" + str(len(INV_DATA)) + "</RTN_CNT>\n"
 
-        RTN_DATA.INV_DATA = INV_DATA
+        for INV in INV_DATA:
+            RTN_DATA += "\t<INV_DATA>\n"
+            RTN_DATA += "\t\t<EINVOICE_01>" + INV.EINVOICE_01 + "</EINVOICE_01>\n"
+            RTN_DATA += "\t\t<EINVOICE_02>" + INV.EINVOICE_02  + "</EINVOICE_02>\n"
+            RTN_DATA += "\t\t<PRZ_PERIOD_01>" + INV.PRZ_PERIOD_01  + "</PRZ_PERIOD_01>\n"
+            RTN_DATA += "\t\t<PRZ_PERIOD_02>" + INV.PRZ_PERIOD_02 + "</PRZ_PERIOD_02>\n"
+            RTN_DATA += "\t\t<PRZ_PERIOD_03>" + INV.PRZ_PERIOD_03 + "</PRZ_PERIOD_03>\n"
+            RTN_DATA += "\t\t<PRZ_TYPE>" + INV.PRZ_TYPE + "</PRZ_TYPE>\n"
+            RTN_DATA += "\t\t<PRZ_AMT>" + str(INV.PRZ_AMT) + "</PRZ_AMT>\n"
+            RTN_DATA += "\t\t<PURCHASE_AMT>" + str(INV.PURCHASE_AMT) + "</PURCHASE_AMT>\n"
+            RTN_DATA += "\t\t<IS_PRINT>" + INV.IS_PRINT + "</IS_PRINT>\n"
+            RTN_DATA += "\t</INV_DATA>\n"
 
-        rtn_json = json.dumps(RTN_DATA, default=obj_dict)
+        RTN_DATA += "</RTN_DATA>\n"
 
-        obj = json.loads(rtn_json)
+        # rtn_json = json.dumps(RTN_DATA, default=obj_dict)
 
-        data = dict2xml(obj, wrap ='RTN_DATA', indent ="   ")
+        # obj = json.loads(rtn_json)
 
-        data = data.replace('&lt;', '<').replace('&gt;', '>')
+        # data = dict2xml(RTN_DATA, wrap ='RTN_DATA', indent ="   ")
 
-        logging.info(data)
+        # data = data.replace('&lt;', '<').replace('&gt;', '>')
 
-        return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
+        logging.info("001=>" + RTN_DATA)
+
+        big5="<?xml version=\"1.0\" encoding=\"big5\"?>\n" + RTN_DATA
+
+        return Response(big5.encode(encoding='big5',errors='strict'), content_type='text/xml; charset=big5')
     except Exception as e:
         error, = e.args
         logging.error(error)
@@ -609,16 +679,26 @@ def famiport_002_test():
        
         RTN_DATA = Object()
 
-        #loop each INV_DATA
-        for inv in INV_DATA:
-            EINVOICE_01 = inv['EINVOICE_01']
-            EINVOICE_02 = inv['EINVOICE_02']
+        
+        if isinstance(INV_DATA, dict):
+            EINVOICE_01 = INV_DATA['EINVOICE_01']
+            EINVOICE_02 = INV_DATA['EINVOICE_02']
 
             TEMP_INV_DETAIL = get_invoice_data_02(EINVOICE_01, EINVOICE_02, PRINT_TIME, TRAN_NO)
-            
+                
             if len(TEMP_INV_DETAIL) > 0:
                 INV_DETAIL.append(TEMP_INV_DETAIL)
                 update_invoice_as_printed(EINVOICE_01, EINVOICE_02, TRAN_NO, PRINT_TIME)
+        else:
+            for inv in INV_DATA:
+                EINVOICE_01 = inv['EINVOICE_01']
+                EINVOICE_02 = inv['EINVOICE_02']
+
+                TEMP_INV_DETAIL = get_invoice_data_02(EINVOICE_01, EINVOICE_02, PRINT_TIME, TRAN_NO)
+                
+                if len(TEMP_INV_DETAIL) > 0:
+                    INV_DETAIL.append(TEMP_INV_DETAIL)
+                    update_invoice_as_printed(EINVOICE_01, EINVOICE_02, TRAN_NO, PRINT_TIME)
 
   
         RTN_DATA.TRAN_NO = TRAN_NO
@@ -637,9 +717,11 @@ def famiport_002_test():
 
         data = data.replace('&lt;', '<').replace('&gt;', '>')
 
-        logging.info(data)
+        logging.info("002=>" + data)
 
-        return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
+        big5="<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data
+
+        return Response(big5.encode(encoding='big5',errors='strict'), content_type='text/xml; charset=big5')
     except Exception as e:
         error, = e.args
         logging.error(error)
@@ -691,14 +773,41 @@ def famiport_003_test():
 
         data = data.replace('&lt;', '<').replace('&gt;', '>')
 
-        logging.info(data)
+        logging.info("003=>" + data)
 
-        return Response("<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data, mimetype='text/xml')
+        big5="<?xml version=\"1.0\" encoding=\"big5\"?>\n" + data
+
+        return Response(big5.encode(encoding='big5',errors='strict'), content_type='text/xml; charset=big5')
     except Exception as e:
         error, = e.args
         logging.error(error)
         return Response("<?xml version=\"1.0\" encoding=\"big5\"?><RTN_DATA><STATUS_CODE>9999</STATUS_CODE><STATUS_DESC><![CDATA[失敗:%s]]></STATUS_DESC><RTN_CNT>0</RTN_CNT></RTN_DATA>" % (error), mimetype='text/xml')
-        
+
+
+# @app.route('/', methods=['GET'])
+# def underconstruction():
+#     html = f"""<!DOCTYPE html>
+# <html>
+#   <head>
+#     <title>Wordcount</title>
+#     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+#     <link href="//netdna.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" media="screen">
+#     <style>
+      
+#     </style>
+#   </head>
+#   <body>
+#     <div class="container">
+
+#       <br>
+#         <h4>Comming Soon</h4>
+    
+#     </div>
+#     <script src="//code.jquery.com/jquery-2.2.1.min.js"></script>
+#     <script src="//netdna.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+#   </body>
+# </html>"""
+#     return Response(html)      
 
 # if __name__ == '__main__':
-#     app.run(host='0.0.0.0', port=8080)
+#    app.run(host='0.0.0.0', port=8080)
