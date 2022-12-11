@@ -313,7 +313,7 @@ def get_invoice_data_02(EINVOICE_01, EINVOICE_02, PRINT_TIME, TRAN_NO):
                     invoice.DATA_8 = item['TTL_AMOUNT']
                     invoice.DATA_9 = item['INV_RN']
                     invoice.DATA_10 = ""
-                    invoice.DATA_11 = item['INV_ROC_DATE'][0:5]
+                    invoice.DATA_11 = item['INV_ROC_DATE'][0:5] + item['INV_NO'] + item['INV_RN']
                     invoice.DATA_12 = ""
                     invoice.DATA_13_01 = get_tw_year(item['INV_AD_DATE'])
                     invoice.DATA_13_02 = get_start_month(item['INV_AD_DATE'])
