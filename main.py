@@ -64,11 +64,12 @@ class Object:
         return json.dumps(self, default=lambda o: o.__dict__, 
             sort_keys=True, indent=4)
 
-# @app.route('/.well-known/pki-validation/24DCBFEEF4F55D73256C199D2F94C9A6.txt')
+# @app.route('/.well-known/pki-validation/53562B960703D3F50A1080B1D1A37643.txt')
 # def validation():
-#     return """02FE21B891F4BC16599FC0925F4E438A3C1CEC4CF7A545B2F7B4E362043000BF
+#     return """141D96015EA2D28A51F7532C290C4D50B62531650F0100B5E262FA68B6BE9ACB
 # comodoca.com
-# a6400d0847a229a"""
+# 0c24fcc19b5ba31"""
+
 
 def obj_dict(obj):
     return obj.__dict__
